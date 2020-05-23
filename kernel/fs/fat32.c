@@ -14,6 +14,7 @@
 
 int fat_mmap(struct user_mapping *um, bool register_only);
 int fat_munmap(fs_handle h, void *vaddrp, size_t len);
+int fat_ramdisk_mm_fixes(struct fat_hdr *hdr, size_t rd_size);
 
 /*
  * Special fat_walk() wrapper handling the special case where `e` is NOT a dir
@@ -446,7 +447,7 @@ STATIC int fat_ioctl(fs_handle h, ulong request, void *arg)
    return -EINVAL;
 }
 
-static const struct file_ops static_ops_fat =
+static struct file_ops static_ops_fat =
 {
    .read = fat_read,
    .seek = fat_seek,
@@ -644,6 +645,11 @@ struct fs *fat_mount_ramdisk(void *vaddr, size_t rd_size, u32 flags)
    fs->device_data = d;
    fs->fsops = &static_fsops_fat;
    fs->flags |= VFS_FS_RQ_DE_SKIP;
+
+   if (fat_ramdisk_mm_fixes(d->hdr, rd_size) < 0) {
+      static_ops_fat.mmap = NULL;
+      static_ops_fat.munmap = NULL;
+   }
 
    return fs;
 }
